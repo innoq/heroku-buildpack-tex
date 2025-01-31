@@ -69,8 +69,11 @@ if [ ! "$(which pdflatex)" ]; then
 fi
 
 build-step "Updating TeX Live..."
-
 tlmgr option repository "$TEXLIVE_REPOSITORY"
+
+build-step "Remove Packages TeX Live..."
+tlmgr remove --all --force
+
 tlmgr update --self
 
 # install user-provided-packages
