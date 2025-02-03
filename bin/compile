@@ -23,6 +23,7 @@ if [ -f "$BUILD_DIR/texlive.repository" ]; then
 fi
 
 TEXLIVE_INSTALLER_URL="$TEXLIVE_REPOSITORY/install-tl-unx.tar.gz"
+TEXLIVE_SHA512_URL="$TEXLIVE_INSTALLER_URL.sha512"
 
 TEXLIVE_HOME=$BUILD_DIR/.texlive
 TEXLIVE_CACHE=$CACHE_DIR/.texlive
@@ -45,8 +46,33 @@ fi
 
 if [ ! -f "$TEXLIVE_HOME/install-tl" ]; then
     build-step "Downloading install-tl..."
-    echo "Using $TEXLIVE_INSTALLER_URL"
-    curl "$TEXLIVE_INSTALLER_URL" -L -s -o - | tar --strip-components=1 -xzf - -C "$TEXLIVE_HOME"
+    build-step "Using $TEXLIVE_INSTALLER_URL"
+    build-step "Using $TEXLIVE_SHA512_URL"
+
+    # Download SHA512 checksum and installer
+    curl "$TEXLIVE_SHA512_URL" -L -s -o "/tmp/install-tl-unx.tar.gz.sha512"
+    curl "$TEXLIVE_INSTALLER_URL" -L -s -o "/tmp/install-tl-unx.tar.gz"
+    
+    # Verify SHA512 checksum
+    cd /tmp
+    ACTUAL_HASH=$(shasum -a 512 install-tl-unx.tar.gz | awk '{print $1}')
+    EXPECTED_HASH=$(cat install-tl-unx.tar.gz.sha512 | awk '{print $1}')
+
+    build-step "Actual hash: $ACTUAL_HASH"
+    build-step "Expected hash: $EXPECTED_HASH"
+
+    if [ $ACTUAL_HASH -ne $EXPECTED_HASH ]; then
+        build-warn "SHA512 Prüfung fehlgeschlagen! Das Installationspaket könnte manipuliert worden sein."
+        exit 1
+    fi
+    
+    # Extract if checksum verification passed
+    tar --strip-components=1 -xzf /tmp/install-tl-unx.tar.gz -C "$TEXLIVE_HOME"
+    
+    # Cleanup
+    rm /tmp/install-tl-unx.tar.gz /tmp/install-tl-unx.tar.gz.sha512
+
+    cd -
 fi
 
 if [ ! "$(which pdflatex)" ]; then
